@@ -3,12 +3,26 @@
   <head>
     <meta charset='utf-8'>
     <title>Búsqueda del USS Scorpion</title>
-    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css"/>
-    <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/interact.js/1.2.6/interact.min.js">></script>
     <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
     <style>
-     #map{ height: 95% }
+     body { margin: 0; padding: 0; }
+     #controls {
+	 position: fixed;
+	 top: 10px;
+	 left: 10px;
+	 z-index: 1000;
+	 background-color: rgba(255, 255, 255, 0.9);
+	 padding: 10px;
+	 border-radius: 8px;
+	 box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+     }
+     #map{ 
+	 height: 100vh; 
+	 width: 100vw;
+     }
      .button {
 	 -moz-border-radius: 8px;
 	 -webkit-border-radius: 8px;
@@ -16,57 +30,117 @@
 	 border-radius: 8px;
 	 border: 2px groove;
 	 color: black;
-	 display: block;
-	 height: 30px;
-	 left: 10px;
-	 line-height: 24px;
-	 position: relative;
+	 display: inline-block;
+	 height: 35px;
+	 line-height: 31px;
+	 margin: 5px;
 	 text-align: center;
 	 text-decoration: none;
-	 top:-70px;
-	 width: 100px;
+	 width: 120px;
+	 cursor: pointer;
+     }
+     .button:hover {
+	 background-color: #ffd700;
+     }
+     #info {
+	 position: fixed;
+	 top: 10px;
+	 right: 10px;
+	 z-index: 1000;
+	 background-color: rgba(255, 255, 255, 0.9);
+	 padding: 10px;
+	 border-radius: 8px;
+	 box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+	 font-size: 14px;
      }
     </style>
   </head>
   <body>
-    <P>
-      <B>&nbsp  Último rastreo:    </B><I id="UltRastreo">aún ninguno</I>
-      <B>&nbsp  Rastreos:    </B><I id="Rastreos">0</I>
-      <B>&nbsp  Correctas:   </B><I id="Correctas">0</I>
-      <B>&nbsp  Incorrectas: </B><I id="Incorrectas">0</I>
-      <B>&nbsp  Puntos:      </B><I id="Puntos">0</I>
-      <div id="map"></div>
+    <div id="info">
+      <B>Último rastreo:</B> <I id="UltRastreo">aún ninguno</I><br/>
+      <B>Rastreos:</B> <I id="Rastreos">0</I><br/>
+      <B>Correctas:</B> <I id="Correctas">0</I><br/>
+      <B>Incorrectas:</B> <I id="Incorrectas">0</I><br/>
+      <B>Puntos:</B> <I id="Puntos">0</I>
+    </div>
+    
+    <div id="controls">
+      <input id='comienzo' class="button" type="button" value="Comenzar" onClick="comenzar()">
+      <input id='rastrear' class="button" type="button" value="Rastrear" onClick="rastrear(ultimo)">
+    </div>
+    
+    <div id="map"></div>
 
       <script>
        var Correctas   =  document.getElementById("Correctas")
-       var correctas   = 0 ;
-       var cuantos     = 0 ;
+       correctas   = 0 ;
+       cuantos     = 0 ;
        var detectp     =  0.6     // probabilidad de detección en un rastreo
        var fillColor ;
        var Incorrectas =  document.getElementById("Incorrectas")
-       var incorrectas = 0 ;
+       incorrectas = 0 ;
        var latitud ;
        var longitud ;
-       var nsectores   = 9 ;
-       var oldprobs    = [] ;
-       var probs       = [] ;
+       nsectores   = 9 ;
+       oldprobs    = [] ;
+       probs       = [] ;
        var Puntos      =  document.getElementById("Puntos")
-       var puntos      = 0 ;
-       var rastreos    = 0 ;
+       puntos      = 0 ;
+       rastreos    = 0 ;
        var Rastreos    =  document.getElementById("Rastreos")
-       var secnames    = [" ", " ", " ", " ", " ", " ", " ", " ", " "] ;
+       secnames    = [" ", " ", " ", " ", " ", " ", " ", " ", " "] ;
        var UltRastreo  =  document.getElementById("UltRastreo")
-       var ultimo      = "aún ninguno" ;
+       ultimo      = "aún ninguno" ;
 
-       // inicializar el mapa
+       // inicializar el mapa cuando esté listo
+       function initializeMap() {
+	   if (typeof L !== 'undefined') {
+	       map = L.map('map').setView([35, -30], 6);
 
-       var map = L.map('map').setView([35, -30], 6);
-
-       // cargar las teselas
-       L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-	   attribution: 'Mapa &copy; <a href="http://openstreetmap.org">OpenStreetMap</a>',
-	   maxZoom: 18,
-       }).addTo(map);
+	       // cargar las teselas
+	       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+		   attribution: 'Mapa &copy; <a href="http://openstreetmap.org">OpenStreetMap</a>',
+		   maxZoom: 18,
+	       }).addTo(map);
+	       
+	       // Inicializar sectores después de que el mapa esté listo
+	       initializeSectors();
+	   } else {
+	       // Si Leaflet no está listo, intentar de nuevo en 100ms
+	       setTimeout(initializeMap, 100);
+	   }
+       }
+       
+       function initializeSectors() {
+	   // Crear sectores después de que el mapa esté listo
+	   sect = L.geoJson(sectores, {
+	       style: function(feature){
+		   // aleatorizamos las probabilidades a priori
+		   // coloreamos de acuerdo con la probabilidad a priori
+		   var fillColor,
+		       apriori = feature.properties.apriori;
+		   if ( apriori > 0.30 ) fillColor = "#006837";
+		   else if ( apriori > 0.20 ) fillColor = "#31a354";
+		   else if ( apriori > 0.15 ) fillColor = "#78c679";
+		   else if ( apriori > 0.10 ) fillColor = "#c2e699";
+		   else if ( apriori > 0 ) fillColor = "#ffffcc";
+		   else fillColor = "#f7f7f7";  // no data
+		   return { color: "#999", weight: 1, fillColor: fillColor, fillOpacity: .6 };
+	       },
+	       onEachFeature: function( feature, layer ){
+		   layer.bindPopup( "<b>Sector:&nbsp" + feature.properties.name +
+				"<br/>Prob a priori:</b>  " +
+				feature.properties.apriori)
+	       } }
+	   ).addTo(map) ;
+       }
+       
+       // Inicializar el mapa cuando el DOM esté listo
+       if (document.readyState === 'loading') {
+	   document.addEventListener('DOMContentLoaded', initializeMap);
+       } else {
+	   initializeMap();
+       }
 
        var sectores = {
 	   "type": "FeatureCollection",
@@ -125,27 +199,6 @@
        //	      }).addTo(map);
        //	    * });*/
 
-       var sect = L.geoJson(sectores, {
-	   style: function(feature){
-	       // aleatorizamos las probabilidades a priori
-
-	       // coloreamos de acuerdo con la probabilidad a priori
-	       var fillColor,
-		   apriori = feature.properties.apriori;
-	       if ( apriori > 0.30 ) fillColor = "#006837";
-	       else if ( apriori > 0.20 ) fillColor = "#31a354";
-	       else if ( apriori > 0.15 ) fillColor = "#78c679";
-	       else if ( apriori > 0.10 ) fillColor = "#c2e699";
-	       else if ( apriori > 0 ) fillColor = "#ffffcc";
-	       else fillColor = "#f7f7f7";  // no data
-	       return { color: "#999", weight: 1, fillColor: fillColor, fillOpacity: .6 };
-	   },
-	   onEachFeature: function( feature, layer ){
-	       layer.bindPopup( "<b>Sector:&nbsp" + feature.properties.name +
-				"<br/>Prob a priori:</b>  " +
-				feature.properties.apriori)
-	   } }
-       ).addTo(map) ;
 
 
        function indexOfMax(arr) {  // StackOverflow, Apr. 5, 2016. "Return index of greatest value in an array"
@@ -167,7 +220,8 @@
 
 	  // encontrar índice del sector rastreado
 
-	  for (i=0; i < nsectores ; i++) {
+	  var k = -1;
+	  for (var i=0; i < nsectores ; i++) {
 	      if (ultimo == secnames[i]) {
 		 k = i ;
 		 break ;
@@ -304,12 +358,46 @@
 
 
       </script>
-      <div id="controls" >
-	<input id='comienzo' class="button" type="button" value="Comenzar"  onClick="comenzar()" top="200px">
-	<input id='rastrear' class="button" type="button" value="Rastrear"  onClick="rastrear(ultimo)" top="200px">
-      </div>
 
       <script>
+       // Ensure bat variable is available globally
+       if (typeof bat === 'undefined') {
+	   var batIcon = L.icon({
+	       iconUrl: 'battleship.png',
+	       iconSize: [60,45]
+	   });
+	   bat = L.marker([32.5, -41.0],{icon:batIcon, draggable: true});
+	   
+	   bat.on('click', function(e) {
+	       rastrear(ultimo);
+	   });
+	   
+	   bat.on('dragend', function(e) {
+	       var d1="X", d2="X";
+	       var lon = this.getLatLng().lng;
+	       var lat = this.getLatLng().lat;
+	       
+	       if ((lat >= 32) & (lat <= 34))
+		   d1 = "C";
+	       else if ((lat >= 34) & (lat <= 36))
+		   d1 = "B";
+	       else if ((lat >= 36) & (lat <= 38))
+		   d1 = "A";
+	       if ((lon >= -39) & (lon <= -35))
+		   d2 = "1";
+	       else if ((lon >= -35) & (lon <= -31))
+		   d2 = "2";
+	       else if ((lon >= -31) & (lon <= -27))
+		   d2 = "3";
+	       
+	       if (d1=="X" || d2=="X")
+		   alert("Por favor, sitúa el barco de búsqueda bien en alguno de los sectores.");
+	       else
+		   ultimo = d1 + d2;
+	       document.getElementById("rastrear").value = "Rastrear " + ultimo;
+	   });
+       }
+       
        function myFunction(str) {
 	var xmlhttp = new XMLHttpRequest();
 	xmlhttp.open("GET", "backend.php?q=" + str, true);
