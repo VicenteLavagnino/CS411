@@ -1,11 +1,12 @@
+<!DOCTYPE html>
 <html>
   <!-- (C) F. Tusell, 2017. Licensed under GPL v 3.0 -->
   <head>
     <meta charset='utf-8'>
-    <title>Búsqueda del USS Scorpion</title>
+    <title>CS411 - EPFL Game</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/interact.js/1.2.6/interact.min.js">></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/interact.js/1.2.6/interact.min.js"></script>
     <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
     <style>
      body { margin: 0; padding: 0; }
@@ -57,66 +58,64 @@
   </head>
   <body>
     <div id="info">
-      <B>Último rastreo:</B> <I id="UltRastreo">aún ninguno</I><br/>
-      <B>Rastreos:</B> <I id="Rastreos">0</I><br/>
-      <B>Correctas:</B> <I id="Correctas">0</I><br/>
-      <B>Incorrectas:</B> <I id="Incorrectas">0</I><br/>
-      <B>Puntos:</B> <I id="Puntos">0</I>
+      <b>Last search:</b> <i id="LastSearch">none yet</i><br/>
+      <b>Searches:</b> <i id="Searches">0</i><br/>
+      <b>Correct:</b> <i id="Correct">0</i><br/>
+      <b>Incorrect:</b> <i id="Incorrect">0</i><br/>
+      <b>Points:</b> <i id="Points">0</i>
     </div>
     
     <div id="controls">
-      <input id='comienzo' class="button" type="button" value="Comenzar" onClick="comenzar()">
-      <input id='rastrear' class="button" type="button" value="Rastrear" onClick="rastrear(ultimo)">
+      <input id='start' class="button" type="button" value="Start" onClick="start()">
+      <input id='search' class="button" type="button" value="Search" onClick="search(last)">
     </div>
     
     <div id="map"></div>
 
       <script>
-       var Correctas   =  document.getElementById("Correctas")
-       correctas   = 0 ;
-       cuantos     = 0 ;
-       var detectp     =  0.6     // probabilidad de detección en un rastreo
+       var Correct   =  document.getElementById("Correct")
+       correct   = 0 ;
+       maxSearches     = 0 ;
+       var detectProb     =  0.6     // detection probability in a search
        var fillColor ;
-       var Incorrectas =  document.getElementById("Incorrectas")
-       incorrectas = 0 ;
-       var latitud ;
-       var longitud ;
-       nsectores   = 9 ;
-       oldprobs    = [] ;
+       var Incorrect =  document.getElementById("Incorrect")
+       incorrect = 0 ;
+       var numSectors   = 9 ;
+       oldProbs    = [] ;
        probs       = [] ;
-       var Puntos      =  document.getElementById("Puntos")
-       puntos      = 0 ;
-       rastreos    = 0 ;
-       var Rastreos    =  document.getElementById("Rastreos")
-       secnames    = [" ", " ", " ", " ", " ", " ", " ", " ", " "] ;
-       var UltRastreo  =  document.getElementById("UltRastreo")
-       ultimo      = "aún ninguno" ;
+       var Points      =  document.getElementById("Points")
+       points      = 0 ;
+       searches    = 0 ;
+       var Searches    =  document.getElementById("Searches")
+       sectorNames    = [" ", " ", " ", " ", " ", " ", " ", " ", " "] ;
+       var LastSearch  =  document.getElementById("LastSearch")
+       last      = "none yet" ;
 
-       // inicializar el mapa cuando esté listo
+       // initialize the map when ready
        function initializeMap() {
 	   if (typeof L !== 'undefined') {
 	       map = L.map('map').setView([35, -30], 6);
 
-	       // cargar las teselas
+	       // load the tiles
 	       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-		   attribution: 'Mapa &copy; <a href="http://openstreetmap.org">OpenStreetMap</a>',
+		   attribution: 'Map &copy; <a href="http://openstreetmap.org">OpenStreetMap</a>',
 		   maxZoom: 18,
 	       }).addTo(map);
 	       
-	       // Inicializar sectores después de que el mapa esté listo
+	       // Initialize sectors after the map is ready
 	       initializeSectors();
 	   } else {
-	       // Si Leaflet no está listo, intentar de nuevo en 100ms
+	       // If Leaflet is not ready, try again in 100ms
 	       setTimeout(initializeMap, 100);
 	   }
        }
        
        function initializeSectors() {
-	   // Crear sectores después de que el mapa esté listo
-	   sect = L.geoJson(sectores, {
+	   // Create sectors after the map is ready
+	   sect = L.geoJson(sectors, {
 	       style: function(feature){
-		   // aleatorizamos las probabilidades a priori
-		   // coloreamos de acuerdo con la probabilidad a priori
+		   // randomize the a priori probabilities
+		   // color according to the a priori probability
 		   var fillColor,
 		       apriori = feature.properties.apriori;
 		   if ( apriori > 0.30 ) fillColor = "#006837";
@@ -129,20 +128,20 @@
 	       },
 	       onEachFeature: function( feature, layer ){
 		   layer.bindPopup( "<b>Sector:&nbsp" + feature.properties.name +
-				"<br/>Prob a priori:</b>  " +
+				"<br/>Prior prob:</b>  " +
 				feature.properties.apriori)
 	       } }
 	   ).addTo(map) ;
        }
        
-       // Inicializar el mapa cuando el DOM esté listo
+       // Initialize the map when the DOM is ready
        if (document.readyState === 'loading') {
 	   document.addEventListener('DOMContentLoaded', initializeMap);
        } else {
 	   initializeMap();
        }
 
-       var sectores = {
+       var sectors = {
 	   "type": "FeatureCollection",
 	   "crs": { "type":"name",  "properties": { "name":"urn:ogc:def:crs:OGC:1.3:CRS84"  }   },
 	   "features":   [
@@ -216,115 +215,115 @@
 	   return maxIndex;
        }
 
-       function rastrear(ultimo) {
+       function search(last) {
 
-	  // encontrar índice del sector rastreado
+	  // find index of the searched sector
 
 	  var k = -1;
-	  for (var i=0; i < nsectores ; i++) {
-	      if (ultimo == secnames[i]) {
+	  for (var i=0; i < numSectors ; i++) {
+	      if (last == sectorNames[i]) {
 		 k = i ;
 		 break ;
 	      }
 	  }
 
 	   var j = indexOfMax(probs) ;
-	   correcto = secnames[j] ;
+	   correctSector = sectorNames[j] ;
 
-	   // actualiza los banners
+	   // update the banners
 
-	   rastreos = rastreos + 1 ;
-	   Rastreos.innerHTML = rastreos ;
-	   UltRastreo.innerHTML = ultimo ;
+	   searches = searches + 1 ;
+	   Searches.innerHTML = searches ;
+	   LastSearch.innerHTML = last ;
 
-	   if (ultimo == correcto) {
-	       correctas = correctas + 1;
-	       Correctas.innerHTML = correctas ;
+	   if (last == correctSector) {
+	       correct = correct + 1;
+	       Correct.innerHTML = correct ;
 	   } else {
-	       incorrectas = incorrectas + 1;
-	       Incorrectas.innerHTML = incorrectas ;
+	       incorrect = incorrect + 1;
+	       Incorrect.innerHTML = incorrect ;
 	   }
-	   puntos = ( 10*(correctas / rastreos) ).toFixed(4) ;
-	   Puntos.innerHTML = puntos ;
-	   if (rastreos > cuantos) {
-	       alert("Lo has encontrado") ;
-	       comenzar() ;
+	   points = ( 10*(correct / searches) ).toFixed(4) ;
+	   Points.innerHTML = points ;
+	   if (searches > maxSearches) {
+	       alert("You found it") ;
+	       start() ;
 	   } else {
 
-	       // generamos probabilidades a posteriori
-	    suma = 0 ;
-	       for (i=0; i < nsectores ; i++) {
+	       // generate a posteriori probabilities
+	    sum = 0 ;
+	       for (i=0; i < numSectors ; i++) {
 		   if (i != k) {
-		       // si el sector no es el último rastreado...
-		       probs[i] = oldprobs[i] / ( 1 - detectp*oldprobs[k] ) ;
+		       // if the sector is not the last searched...
+		       probs[i] = oldProbs[i] / ( 1 - detectProb*oldProbs[k] ) ;
 	       } else {
-		       // en caso contrario...
-		       probs[i] = ( (1 - detectp)*oldprobs[i] ) / ( 1 - detectp*oldprobs[i] )
+		       // otherwise...
+		       probs[i] = ( (1 - detectProb)*oldProbs[i] ) / ( 1 - detectProb*oldProbs[i] )
 		   }
-		   suma = suma + probs[i] ;
+		   sum = sum + probs[i] ;
 	       }
 
-	       for (i=0; i < nsectores ; i++) {
-		   probs[i] = probs[i] / suma ;
-		   sectores.features[i].properties.apriori = ( oldprobs[i] ).toFixed(3) ;
+	       for (i=0; i < numSectors ; i++) {
+		   probs[i] = probs[i] / sum ;
+		   sectors.features[i].properties.apriori = ( oldProbs[i] ).toFixed(3) ;
 	       }
 
-	       // reemplazamos el reticulado de los sectores con otro nuevo
+	       // replace the sector grid with a new one
 
 	       map.removeLayer(sect)
 
-	       // mostraremos el coloreado que corresponde a las probabilidades
-	       // **antes** de ser revisadas con el resultado del último rastreo
+	       // we will show the coloring that corresponds to the probabilities
+	       // **before** being revised with the result of the last search
 
-	       sect = L.geoJson(sectores, {
+	       sect = L.geoJson(sectors, {
 		   style: function(feature){
-		       // coloreamos
+		       // color
 		       var fillColor,
 			   apriori = feature.properties.apriori;
 		       if ( apriori > 0.30 ) fillColor = "#006837";
-		       else if ( apriori > 0.20 ) fillColor = "#31a354";
-		       else if ( apriori > 0.15 ) fillColor = "#78c679";
-		       else if ( apriori > 0.10 ) fillColor = "#c2e699";
-		       else if ( apriori > 0 ) fillColor = "#ffffcc";
-		       else fillColor = "#f7f7f7";  // no data
+		   else if ( apriori > 0.20 ) fillColor = "#31a354";
+		   else if ( apriori > 0.15 ) fillColor = "#78c679";
+		   else if ( apriori > 0.10 ) fillColor = "#c2e699";
+		   else if ( apriori > 0 ) fillColor = "#ffffcc";
+		   else fillColor = "#f7f7f7";  // no data
 		       return { color: "#999", weight: 1, fillColor: fillColor, fillOpacity: .6 };
 		   },
 		   onEachFeature: function( feature, layer ){
 		       layer.bindPopup( "<b>Sector:&nbsp" + feature.properties.name +
-					"<br/>Antes ultimo rastreo:</b> p = " +
+					"<br/>Before last search:</b> p = " +
 					feature.properties.apriori +
-					"<br><b>Último rastreo:</b> " + ultimo)
+					"<br><b>Last search:</b> " + last)
 		   } }
 	       ) ;
 	       sect.addTo(map) ;
 
-	       // actualiza las probabilidades a priori
+	       // update the a priori probabilities
 
-	       for (i=0; i < nsectores ; i++) {
-		   oldprobs[i] = probs[i] ;
+	       for (i=0; i < numSectors ; i++) {
+		   oldProbs[i] = probs[i] ;
 	       }
 	   }
        } ;
 
 
-       // definicion y propiedades del barco de búsqueda
+       // definition and properties of the search ship
 
-       var batIcon = L.icon({
+       var shipIcon = L.icon({
 	   iconUrl: 'battleship.png',
 	   iconSize: [60,45]
        });
 
-       // bat es global, por estar declarada sin "var"
+       // ship is global, because it's declared without "var"
 
-       bat = L.marker([32.5, -41.0],{icon:batIcon, draggable: true})
+       ship = L.marker([32.5, -41.0],{icon:shipIcon, draggable: true})
 
-       bat.on('click', function(e) {
-	   rastrear(ultimo) ;
+       ship.on('click', function(e) {
+	   search(last) ;
        }) ;
 
-       bat.on('dragend', function(e) {
+       ship.on('dragend', function(e) {
 
-	   // determinar en qué sector nos encontramos
+	   // determine which sector we are in
 
 	   var d1="X", d2="X" ;
 	   lon = this.getLatLng().lng ;
@@ -343,36 +342,36 @@
 	   else if  ((lon >= -31) & (lon <= -27))
 	       d2 = "3"
 
-	   // si alguna coordenada no ha podido determinarse, rogar al usuario que
-	   // sitúe el barco de búsqueda bien dentro de alguno de los sectores;
+	   // if any coordinate could not be determined, ask the user to
+	   // place the search ship well within one of the sectors;
 
 	   if (d1=="X" | d2=="X")
-	       alert("Por favor, sitúa el barco de búsqueda bien en alguno de los sectores.")
+	       alert("Please place the search ship well within one of the sectors.")
 
-	   // en otro caso, tomar nota del sector en que nos encontramos.
+	   // otherwise, take note of the sector we are in.
 
 	   else
-	       ultimo = d1 + d2 ;
-	   document.getElementById("rastrear").value = "Rastrear " + ultimo ;
+	       last = d1 + d2 ;
+	   document.getElementById("search").value = "Search " + last ;
        });
 
 
       </script>
 
       <script>
-       // Ensure bat variable is available globally
-       if (typeof bat === 'undefined') {
-	   var batIcon = L.icon({
+       // Ensure ship variable is available globally
+       if (typeof ship === 'undefined') {
+	   var shipIcon = L.icon({
 	       iconUrl: 'battleship.png',
 	       iconSize: [60,45]
 	   });
-	   bat = L.marker([32.5, -41.0],{icon:batIcon, draggable: true});
+	   ship = L.marker([32.5, -41.0],{icon:shipIcon, draggable: true});
 	   
-	   bat.on('click', function(e) {
-	       rastrear(ultimo);
+	   ship.on('click', function(e) {
+	       search(last);
 	   });
 	   
-	   bat.on('dragend', function(e) {
+	   ship.on('dragend', function(e) {
 	       var d1="X", d2="X";
 	       var lon = this.getLatLng().lng;
 	       var lat = this.getLatLng().lat;
@@ -391,79 +390,87 @@
 		   d2 = "3";
 	       
 	       if (d1=="X" || d2=="X")
-		   alert("Por favor, sitúa el barco de búsqueda bien en alguno de los sectores.");
+		   alert("Please place the search ship well within one of the sectors.");
 	       else
-		   ultimo = d1 + d2;
-	       document.getElementById("rastrear").value = "Rastrear " + ultimo;
+		   last = d1 + d2;
+	       document.getElementById("search").value = "Search " + last;
 	   });
        }
        
-       function myFunction(str) {
-	var xmlhttp = new XMLHttpRequest();
-	xmlhttp.open("GET", "backend.php?q=" + str, true);
-	xmlhttp.send();
-}
+       // Replace ONLY this function to call /api/backend (Node), not backend.php
+       function submitScore(str) {
+         var xmlhttp = new XMLHttpRequest();
+         // Call to the Vercel serverless function
+         xmlhttp.open("GET", "/api/backend?q=" + encodeURIComponent(str), true);
+         xmlhttp.send();
+       }
 
 
 
-       function comenzar() {
-	   var aaa = document.getElementById('comienzo') ;
-	   if (aaa.value == 'Comenzar') {
-	       cuantos = Math.floor((20*Math.random())) ;
-	       bat.addTo(map);
-	       aaa.style.color = "blue" ;
-	       aaa.value = 'Finalizar' ;
-	       correctas.innerHTML = 0 ;
-	       incorrectas.innerHTML = 0 ;
-	       puntos.innerHTML = 0 ;
-	       // aleatorizamos probabilidades iniciales
-	       var suma  = 0 ;
-	       for (i=0; i < nsectores ; i++) {
+       function start() {
+	   var startButton = document.getElementById('start') ;
+	   if (startButton.value == 'Start') {
+	       maxSearches = Math.floor((20*Math.random())) ;
+	       ship.addTo(map);
+	       startButton.style.color = "blue" ;
+	       startButton.value = 'Finish' ;
+	       correct = 0 ;
+	       incorrect = 0 ;
+	       points = 0 ;
+	       searches = 0 ;
+	       last = "none yet" ;
+	       Correct.innerHTML = 0 ;
+	       Incorrect.innerHTML = 0 ;
+	       Points.innerHTML = 0 ;
+	       Searches.innerHTML = 0 ;
+	       LastSearch.innerHTML = "none yet" ;
+	       // randomize initial probabilities
+	       var sum  = 0 ;
+	       for (i=0; i < numSectors ; i++) {
 		   probs[i] = Math.random() ;
-		   suma = suma + probs[i] ;
+		   sum = sum + probs[i] ;
 
 	       }
-	       for (i=0 ; i < nsectores; i++) {
-		   probs[i] = probs[i] / suma
-		   sectores.features[i].properties.apriori = ( probs[i] ).toFixed(3) ;
-		   oldprobs[i] = probs[i]  ;
-		   secnames[i] =  sectores.features[i].properties.name ;
+	       for (i=0 ; i < numSectors; i++) {
+		   probs[i] = probs[i] / sum
+		   sectors.features[i].properties.apriori = ( probs[i] ).toFixed(3) ;
+		   oldProbs[i] = probs[i]  ;
+		   sectorNames[i] =  sectors.features[i].properties.name ;
 	       }
 	       map.removeLayer(sect)
 
-	       // mostraremos el coloreado que corresponde a las probabilidades
-	       // **antes** de ser revisadas con el resultado del último rastreo
+	       // we will show the coloring that corresponds to the probabilities
+	       // **before** being revised with the result of the last search
 
-	       sect = L.geoJson(sectores, {
+	       sect = L.geoJson(sectors, {
 		   style: function(feature){
-		       // coloreamos
+		       // color
 		       var fillColor,
 			   apriori = feature.properties.apriori;
 		       if ( apriori > 0.30 ) fillColor = "#006837";
-		       else if ( apriori > 0.20 ) fillColor = "#31a354";
-		       else if ( apriori > 0.15 ) fillColor = "#78c679";
-		       else if ( apriori > 0.10 ) fillColor = "#c2e699";
-		       else if ( apriori > 0 ) fillColor = "#ffffcc";
-		       else fillColor = "#f7f7f7";  // no data
+		   else if ( apriori > 0.20 ) fillColor = "#31a354";
+		   else if ( apriori > 0.15 ) fillColor = "#78c679";
+		   else if ( apriori > 0.10 ) fillColor = "#c2e699";
+		   else if ( apriori > 0 ) fillColor = "#ffffcc";
+		   else fillColor = "#f7f7f7";  // no data
 		       return { color: "#999", weight: 1, fillColor: fillColor, fillOpacity: .6 };
 		   },
 		   onEachFeature: function( feature, layer ){
 		       layer.bindPopup( "<b>Sector:&nbsp" + feature.properties.name +
-					"<br/>Antes ultimo rastreo:</b> p = " +
+					"<br/>Before last search:</b> p = " +
 					feature.properties.apriori +
-					"<br><b>Último rastreo:</b> " + ultimo)
+					"<br><b>Last search:</b> " + last)
 		   } }
 	       ) ;
 	       sect.addTo(map) ;
 	   }
-	   else if (aaa.value == 'Finalizar') {
-	       var DNI = prompt("Tu nota será grabada. Puedes regresar cuantas veces quieras y sólo la última valdrá\nPor favor, introduce tu DNI", "00000000");
-	       var q = DNI;
-	       myFunction(DNI + ',' + puntos) ;
-	       aaa.style.color = "black" ;
-	       aaa.value = 'Comenzar' ;
-	       map.removeLayer(bat) ;
-	       // forzar la recarga de la página
+	   else if (startButton.value == 'Finish') {
+	       var userId = prompt("Your score will be recorded. You can return as many times as you want and only the last one will count\nPlease enter your ID", "00000000");
+	       submitScore(userId + ',' + points) ;
+	       startButton.style.color = "black" ;
+	       startButton.value = 'Start' ;
+	       map.removeLayer(ship) ;
+	       // force page reload
 	       location.reload() ;
 	   }
        }
