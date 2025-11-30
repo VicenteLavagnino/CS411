@@ -464,9 +464,8 @@
 	       ) ;
 	       sect.addTo(map) ;
 	   }
-	   else if (startButton.value == 'Finish') {
-	       var userId = prompt("Your score will be recorded. You can return as many times as you want and only the last one will count\nPlease enter your ID", "00000000");
-	       submitScore(userId + ',' + points) ;
+	else if (startButton.value == 'Finish') {
+	       alert("Thank you for your response, you can now return to the Moodle activity");
 	       startButton.style.color = "black" ;
 	       startButton.value = 'Start' ;
 	       map.removeLayer(ship) ;
